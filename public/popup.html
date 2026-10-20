@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>상품 등록 도우미</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="head">
+      <div>
+        <h1>상품 등록 도우미</h1>
+        <p class="sub">한 번 입력하고, 마켓별 폼은 자동으로.</p>
+      </div>
+      <span id="version" class="version"></span>
+    </header>
+
+    <main>
+      <section class="block">
+        <div class="row">
+          <label class="label" for="market">마켓</label>
+          <select id="market" class="grow"></select>
+          <button id="open" class="ghost" type="button">등록 페이지</button>
+        </div>
+        <p id="detected" class="hint"></p>
+      </section>
+
+      <section class="block">
+        <div class="row between">
+          <label class="label" for="json">상품 JSON</label>
+          <div class="row tight">
+            <button id="sample" class="ghost small" type="button">예시</button>
+            <button id="load" class="ghost small" type="button">불러오기</button>
+            <button id="download" class="ghost small" type="button">내보내기</button>
+          </div>
+        </div>
+        <textarea id="json" spellcheck="false" aria-label="상품 JSON"></textarea>
+        <div id="issues" class="issues" aria-live="polite"></div>
+      </section>
+
+      <section class="block row tight">
+        <button id="prefill" class="primary" type="button">폼 채우기</button>
+        <button id="scan" class="ghost" type="button">폼 스캔</button>
+        <span id="status" class="status" role="status"></span>
+      </section>
+
+      <section id="report" class="report" aria-live="polite"></section>
+
+      <p class="safety">
+        저장·제출은 자동으로 하지 않습니다. 자동 입력된 값을 확인한 뒤 직접
+        제출하세요. 상품 데이터는 이 브라우저에만 저장됩니다.
+      </p>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

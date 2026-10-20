@@ -1,0 +1,22 @@
+{
+  "name": "product-auto-input",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "국내 주요 오픈마켓 판매자센터 상품 등록 폼을 자동으로 채워주는 Chrome 확장",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run typecheck && npm test && npm run build",
+    "package": "npm run build && cd dist && zip -qr ../product-auto-input.zip ."
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.287",
+    "esbuild": "^0.21.5",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.6.3",
+    "vitest": "^3.0.5"
+  }
+}

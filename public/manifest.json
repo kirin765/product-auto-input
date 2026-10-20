@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "상품 등록 도우미 — Product Auto Input",
+  "version": "0.1.0",
+  "description": "스마트스토어·쿠팡·G마켓·옥션·11번가·지그재그·에이블리 판매자센터의 상품 등록 폼을 한 번의 입력으로 채워 줍니다. 저장·제출은 직접 합니다.",
+  "minimum_chrome_version": "110",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "상품 등록 도우미",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://sell.smartstore.naver.com/*",
+        "https://wing.coupang.com/*",
+        "https://etrade.gmarket.co.kr/*",
+        "https://etrade.auction.co.kr/*",
+        "https://soffice.11st.co.kr/*",
+        "https://partner.zigzag.kr/*",
+        "https://seller.a-bly.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "host_permissions": [
+    "https://sell.smartstore.naver.com/*",
+    "https://wing.coupang.com/*",
+    "https://etrade.gmarket.co.kr/*",
+    "https://etrade.auction.co.kr/*",
+    "https://soffice.11st.co.kr/*",
+    "https://partner.zigzag.kr/*",
+    "https://seller.a-bly.com/*"
+  ]
+}

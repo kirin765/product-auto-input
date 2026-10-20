@@ -1,0 +1,48 @@
+{
+  "title": "온누리 스테인리스 텀블러 500ml",
+  "brand": "온누리",
+  "manufacturer": "온누리공방",
+  "supplier": "온누리공방",
+  "categoryPath": ["생활/건강", "주방용품", "컵/텀블러"],
+  "categoryCodes": {
+    "smartstore": "50000123",
+    "coupang": "123456"
+  },
+  "price": 18900,
+  "originalPrice": 25000,
+  "stock": 120,
+  "sku": "ONN-TMB-500",
+  "barcode": "8801234567890",
+  "condition": "new",
+  "taxType": "taxable",
+  "images": [
+    { "url": "https://example.com/tumbler-main.jpg", "type": "main" },
+    { "url": "https://example.com/tumbler-detail.jpg", "type": "detail" }
+  ],
+  "detailText": "이중 진공 구조로 보온·보냉이 오래가는 500ml 스테인리스 텀블러입니다.",
+  "optionGroups": [
+    {
+      "name": "색상",
+      "values": [
+        { "name": "실버", "stock": 60, "sku": "ONN-TMB-500-SV" },
+        { "name": "블랙", "stock": 60, "sku": "ONN-TMB-500-BK" }
+      ]
+    }
+  ],
+  "shipping": {
+    "origin": "대한민국",
+    "method": "택배",
+    "fee": 3000,
+    "freeThreshold": 30000,
+    "deliveryDays": "1~2일",
+    "company": "CJ대한통운"
+  },
+  "notice": {
+    "품목": "텀블러",
+    "재질": "스테인리스",
+    "크기": "500ml",
+    "제조자": "온누리공방"
+  },
+  "tags": ["텀블러", "보온병", "스테인리스"],
+  "searchKeywords": ["텀블러", "보온 텀블러"]
+}
