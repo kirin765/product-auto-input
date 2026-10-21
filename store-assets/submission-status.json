@@ -1,0 +1,28 @@
+{
+  "checkedAt": "2026-10-20T11:35:31.370Z",
+  "chrome": {
+    "status": "Pending review",
+    "version": "0.1.1",
+    "url": "https://chrome.google.com/u/1/webstore/devconsole/fcf2a83c-a418-4ddb-8a23-e283590048f0/hmphkaliifejpnmdlincepodpplojplc/edit",
+    "summary": "CSV·XLSX·JSON으로 준비한 상품 정보를 지원 판매자센터의 등록 폼에 채워 줍니다. 입력 결과를 확인하고 저장·제출은 직접 진행하세요."
+  },
+  "edge": {
+    "version": "0.1.1",
+    "status": "In review",
+    "url": "https://partner.microsoft.com/en-us/dashboard/microsoftedge/c9b846c4-455a-4039-a098-d781e79a4728/packages/dashboard",
+    "storeId": "0RDCKFMF1XCH",
+    "crxId": "lanpkdajdnncfgplngpfdflfdnleakmk"
+  },
+  "whale": {
+    "version": "0.1.0",
+    "status": "Under review",
+    "url": "https://store.whale.naver.com/developers/edit/extension/fppcpckimjgcpggfhilhdkddeeloommm?published=false"
+  },
+  "firefox": {
+    "version": "0.1.0",
+    "status": "nominated / unreviewed",
+    "id": 3102233,
+    "versionId": 6599308,
+    "url": "https://addons.mozilla.org/en-US/developers/addon/상품-등록-도우미-product-auto-input/edit"
+  }
+}

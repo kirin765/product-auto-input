@@ -5,6 +5,7 @@ export type MarketId =
   | "coupang"
   | "gmarket"
   | "auction"
+  | "esmplus"
   | "elevenst"
   | "zigzag"
   | "ably";

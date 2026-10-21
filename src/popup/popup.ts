@@ -13,13 +13,47 @@ import {
   type CanonicalProduct
 } from "../shared/product";
 import { validateProduct, type ValidationIssue } from "../shared/validate";
+import { parseCsv } from "../shared/csv";
+import { readXlsxRows } from "../shared/xlsx";
+import {
+  TEMPLATE_COLUMNS,
+  parseTemplateRows,
+  parseTemplateValues,
+  pathToColumn,
+  templateCsv,
+  templateXlsx,
+  type TemplateIssue,
+  type TemplateResult
+} from "../shared/template";
 import type { MarketId } from "../shared/product";
+import {
+  disconnect,
+  getAccount,
+  getCachedEntitlement,
+  redeemLink,
+  refreshEntitlement,
+  startCheckout,
+  startLink,
+  startPortal,
+  type AccountState
+} from "../shared/account";
+import { ACCOUNT_PAGE, PRICING_PAGE } from "../shared/config";
+import { localPaidAccess, shouldRefresh, type CachedEntitlement } from "../shared/entitlement";
+import {
+  canFill,
+  loadDailyUsage,
+  recordFill,
+  remainingFills,
+  type DailyFillUsage
+} from "../shared/usage";
+import { FREE_DAILY_FILLS } from "../../shared/schema";
 
 const DRAFT_KEY = "draft:product";
 
 const el = {
   market: document.getElementById("market") as HTMLSelectElement,
   detected: document.getElementById("detected") as HTMLParagraphElement,
+  steps: document.getElementById("steps") as HTMLDivElement,
   json: document.getElementById("json") as HTMLTextAreaElement,
   issues: document.getElementById("issues") as HTMLDivElement,
   prefill: document.getElementById("prefill") as HTMLButtonElement,
@@ -28,13 +62,38 @@ const el = {
   sample: document.getElementById("sample") as HTMLButtonElement,
   load: document.getElementById("load") as HTMLButtonElement,
   download: document.getElementById("download") as HTMLButtonElement,
+  file: document.getElementById("file") as HTMLInputElement,
+  fileName: document.getElementById("file-name") as HTMLSpanElement,
+  templateCsv: document.getElementById("template-csv") as HTMLButtonElement,
+  templateXlsx: document.getElementById("template-xlsx") as HTMLButtonElement,
+  fixes: document.getElementById("fixes") as HTMLDivElement,
   status: document.getElementById("status") as HTMLSpanElement,
   report: document.getElementById("report") as HTMLDivElement,
-  version: document.getElementById("version") as HTMLSpanElement
+  version: document.getElementById("version") as HTMLSpanElement,
+  acctStatus: document.getElementById("acct-status") as HTMLSpanElement,
+  acctBadge: document.getElementById("acct-badge") as HTMLSpanElement,
+  acctUsage: document.getElementById("acct-usage") as HTMLParagraphElement,
+  acctHint: document.getElementById("acct-hint") as HTMLParagraphElement,
+  connect: document.getElementById("btn-connect") as HTMLButtonElement,
+  confirm: document.getElementById("btn-confirm") as HTMLButtonElement,
+  upgrade: document.getElementById("btn-upgrade") as HTMLButtonElement,
+  manage: document.getElementById("btn-manage") as HTMLButtonElement,
+  acctDisconnect: document.getElementById("btn-disconnect") as HTMLButtonElement,
+  paywall: document.getElementById("paywall") as HTMLElement,
+  paywallText: document.getElementById("paywall-text") as HTMLParagraphElement,
+  paywallUpgrade: document.getElementById("paywall-upgrade") as HTMLButtonElement
 };
 
 let product: CanonicalProduct = sampleProduct();
 let busy = false;
+let hasBlockingErrors = false;
+let fileError: string | null = null;
+let template: TemplateResult | undefined;
+let templateMetaIssues: TemplateIssue[] = [];
+let account: AccountState | null = null;
+let entitlementCache: CachedEntitlement | null = null;
+let dailyUsage: DailyFillUsage | null = null;
+let accountBusy = false;
 
 function escapeHtml(value: string): string {
   return value
@@ -50,8 +109,161 @@ function setStatus(text: string): void {
 
 function setBusy(value: boolean): void {
   busy = value;
-  el.prefill.disabled = value;
+  el.prefill.disabled = value || hasBlockingErrors;
   el.scan.disabled = value;
+}
+
+function openTab(url: string): void {
+  void chrome.tabs.create({ url });
+}
+
+function isPaid(): boolean {
+  return localPaidAccess(entitlementCache).active;
+}
+
+function toggleButton(button: HTMLButtonElement, visible: boolean): void {
+  button.classList.toggle("hidden", !visible);
+}
+
+function updateAccountUI(): void {
+  const state = account;
+  if (!state) return;
+  const paid = isPaid();
+  const freeLimitReached = !paid && dailyUsage != null && !canFill(dailyUsage, "free");
+  const remaining = dailyUsage ? remainingFills(dailyUsage, paid ? "paid" : "free") : null;
+
+  el.acctBadge.classList.remove("hidden", "free", "paid");
+  el.acctBadge.classList.add(paid ? "paid" : "free");
+  el.acctBadge.textContent = paid ? "이용 중" : "무료";
+
+  if (state.connected) {
+    el.acctStatus.textContent = state.email ?? "계정 연결됨";
+    el.acctUsage.textContent = paid
+      ? "구독 이용 중 · 폼 채우기 횟수 제한 없음"
+      : dailyUsage
+        ? `오늘 무료 ${dailyUsage.count}/${FREE_DAILY_FILLS}회 사용 · ${remaining}회 남음`
+        : "";
+    el.acctHint.textContent = paid
+      ? "구독이 확인되었습니다. 폼 채우기를 횟수 제한 없이 사용할 수 있습니다."
+      : `무료는 하루 ${FREE_DAILY_FILLS}회까지 폼을 채울 수 있습니다.`;
+  } else if (state.pending) {
+    el.acctStatus.textContent = "연결 승인 대기 중";
+    el.acctUsage.textContent = dailyUsage
+      ? `오늘 무료 ${dailyUsage.count}/${FREE_DAILY_FILLS}회 사용 · ${remaining}회 남음`
+      : "";
+    el.acctHint.textContent =
+      "제품 사이트에서 로그인 후 연결을 승인하고, 여기서 ‘승인 확인’을 눌러 주세요.";
+  } else {
+    el.acctStatus.textContent = "제품 계정 미연결";
+    el.acctUsage.textContent = dailyUsage
+      ? `오늘 무료 ${dailyUsage.count}/${FREE_DAILY_FILLS}회 사용 · ${remaining}회 남음`
+      : "";
+    el.acctHint.textContent = "계정 연결 없이도 무료 한도까지 사용할 수 있습니다. 구독에는 계정 연결이 필요합니다.";
+  }
+
+  toggleButton(el.connect, !state.connected && !state.pending);
+  toggleButton(el.confirm, state.pending);
+  toggleButton(el.upgrade, state.connected && !paid);
+  toggleButton(el.manage, state.connected && paid);
+  toggleButton(el.acctDisconnect, state.connected || state.pending);
+
+  el.paywall.classList.toggle("hidden", !freeLimitReached);
+  if (freeLimitReached) {
+    el.paywallText.textContent = `오늘 무료 ${FREE_DAILY_FILLS}회를 모두 사용했습니다. 구독하면 횟수 제한 없이 폼을 채울 수 있습니다.`;
+  }
+}
+
+async function refreshAccount(): Promise<void> {
+  account = await getAccount();
+  if (account.connected && shouldRefresh(entitlementCache)) {
+    entitlementCache = (await refreshEntitlement()) ?? entitlementCache;
+  } else if (!account.connected) {
+    entitlementCache = await getCachedEntitlement();
+  }
+  if (dailyUsage == null) dailyUsage = await loadDailyUsage();
+  updateAccountUI();
+}
+
+async function connectAccount(): Promise<void> {
+  if (accountBusy) return;
+  accountBusy = true;
+  try {
+    const { verificationUrl } = await startLink();
+    openTab(verificationUrl);
+    account = await getAccount();
+    updateAccountUI();
+    setStatus("브라우저에서 계정 연결을 승인한 뒤 ‘승인 확인’을 누르세요.");
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : "계정 연결을 시작하지 못했습니다.");
+  } finally {
+    accountBusy = false;
+  }
+}
+
+async function confirmAccount(): Promise<void> {
+  if (accountBusy) return;
+  accountBusy = true;
+  try {
+    await redeemLink();
+    await refreshAccount();
+    setStatus("계정이 연결되었습니다.");
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : "계정 연결을 확인하지 못했습니다.");
+  } finally {
+    accountBusy = false;
+  }
+}
+
+async function upgradePlan(): Promise<void> {
+  if (accountBusy) return;
+  if (!account?.connected) {
+    await connectAccount();
+    return;
+  }
+  accountBusy = true;
+  try {
+    const url = await startCheckout();
+    openTab(url ?? PRICING_PAGE);
+  } catch {
+    openTab(PRICING_PAGE);
+  } finally {
+    accountBusy = false;
+  }
+}
+
+async function manageSubscription(): Promise<void> {
+  if (accountBusy) return;
+  accountBusy = true;
+  try {
+    const url = await startPortal();
+    openTab(url ?? ACCOUNT_PAGE);
+  } catch {
+    openTab(ACCOUNT_PAGE);
+  } finally {
+    accountBusy = false;
+  }
+}
+
+async function disconnectAccount(): Promise<void> {
+  if (accountBusy) return;
+  accountBusy = true;
+  try {
+    await disconnect();
+    entitlementCache = null;
+    account = await getAccount();
+    updateAccountUI();
+    setStatus("계정 연결을 해제했습니다.");
+  } finally {
+    accountBusy = false;
+  }
+}
+
+function clearTemplate(): void {
+  template = undefined;
+  templateMetaIssues = [];
+  fileError = null;
+  el.fileName.textContent = "";
+  el.fixes.innerHTML = "";
 }
 
 function selectedAdapter() {
@@ -71,28 +283,144 @@ function renderDetected(): void {
   const adapter = selectedAdapter();
   if (!adapter) return;
   const verified = adapter.verified ? "셀렉터 검증됨" : "셀렉터 미검증";
-  el.detected.textContent = `${adapter.sellerCenter} · ${verified}`;
-  el.detected.title = [...adapter.requirements, ...adapter.notes].join("\n");
+  const steps = adapter.steps ? ` · ${adapter.steps.length}단계` : "";
+  el.detected.textContent = `${adapter.sellerCenter} · ${verified}${steps}`;
+  el.detected.title = [
+    ...adapter.requirements,
+    ...(adapter.steps ? ["단계:", ...adapter.steps] : []),
+    ...adapter.notes
+  ].join("\n");
+  el.steps.innerHTML = adapter.steps
+    ? `<strong>진행 단계</strong><ol>${adapter.steps
+        .map((step) => `<li>${escapeHtml(step.replace(/^\d+\.\s*/, ""))}</li>`)
+        .join("")}</ol>`
+    : "";
 }
 
 function renderIssues(): void {
-  const result = validateProduct(product);
-  const issues: ValidationIssue[] = [...result.errors, ...result.warnings];
-  if (issues.length === 0) {
-    el.issues.className = "issues ok";
-    el.issues.textContent = "필수 항목이 모두 채워졌습니다.";
+  if (fileError) {
+    hasBlockingErrors = true;
+    el.prefill.disabled = true;
+    el.fixes.innerHTML = "";
+    el.issues.className = "issues error";
+    el.issues.textContent = fileError;
     return;
   }
-  el.issues.className = result.errors.length > 0 ? "issues error" : "issues warn";
+
+  const result = validateProduct(product);
+  const templateIssues = template ? [...templateMetaIssues, ...template.issues] : [];
+  const templateErrors = templateIssues.filter((issue) => issue.severity === "error");
+  const templateWarnings = templateIssues.filter((issue) => issue.severity === "warning");
+  const errors = [...templateErrors, ...result.errors];
+  const warnings = [...templateWarnings, ...result.warnings];
+  hasBlockingErrors = errors.length > 0;
+  el.prefill.disabled = busy || hasBlockingErrors;
+
+  const messages = [...errors, ...warnings]
+    .map((issue) =>
+      "column" in issue && issue.column
+        ? `[${issue.column}] ${issue.message}`
+        : issue.message
+    )
+    .filter((message, index, all) => all.indexOf(message) === index);
+
+  if (messages.length === 0) {
+    el.issues.className = "issues ok";
+    el.issues.textContent = "필수 항목이 모두 채워졌습니다.";
+    el.fixes.innerHTML = "";
+    return;
+  }
+  el.issues.className = errors.length > 0 ? "issues error" : "issues warn";
   el.issues.innerHTML = `<strong>${
-    result.errors.length > 0 ? `오류 ${result.errors.length}건` : `확인 ${result.warnings.length}건`
-  }</strong><ul>${issues
-    .slice(0, 6)
-    .map((issue) => `<li>${escapeHtml(issue.message)}</li>`)
+    errors.length > 0 ? `오류 ${errors.length}건` : `확인 ${warnings.length}건`
+  }</strong><ul>${messages
+    .slice(0, 8)
+    .map((message) => `<li>${escapeHtml(message)}</li>`)
     .join("")}</ul>`;
+
+  renderFixes(result.errors, templateErrors);
+}
+
+function renderFixes(errors: ValidationIssue[], templateErrors: TemplateIssue[]): void {
+  if (!template) {
+    el.fixes.innerHTML = "";
+    return;
+  }
+  const columns = new Set<string>();
+  for (const issue of templateErrors) {
+    if (issue.column) columns.add(issue.column);
+  }
+  for (const issue of errors) {
+    const column = pathToColumn(issue.path);
+    if (column) columns.add(column);
+  }
+
+  const fields = [...columns]
+    .map((header) => {
+      const column = TEMPLATE_COLUMNS.find((item) => item.header === header);
+      if (!column) return "";
+      const value = template?.values[header] ?? "";
+      const control =
+        column.kind === "longText" || column.kind === "imageList"
+          ? `<textarea data-column="${escapeHtml(header)}" rows="2">${escapeHtml(value)}</textarea>`
+          : `<input data-column="${escapeHtml(header)}" value="${escapeHtml(value)}" />`;
+      return `<div class="fix-row"><label>${escapeHtml(header)}</label>${control}</div>`;
+    })
+    .join("");
+
+  el.fixes.innerHTML = fields
+    ? `<p class="fixes-title">오류 수정 (1개 상품)</p>${fields}`
+    : "";
+
+  for (const control of Array.from(
+    el.fixes.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea")
+  )) {
+    control.addEventListener("change", () => {
+      if (!template) return;
+      const column = control.getAttribute("data-column");
+      if (!column) return;
+      template.values[column] = control.value;
+      const next = parseTemplateValues(template.values);
+      template = {
+        ...next,
+        unknownColumns: template.unknownColumns,
+        rowCount: template.rowCount
+      };
+      product = next.product;
+      el.json.value = productToJson(product);
+      renderIssues();
+      void saveDraft();
+    });
+  }
+}
+
+function applyTemplate(result: TemplateResult, fileName: string): void {
+  template = result;
+  templateMetaIssues = result.issues.filter((issue) => !issue.column);
+  fileError = null;
+  product = result.product;
+  el.json.value = productToJson(product);
+  el.fileName.textContent = fileName;
+  renderIssues();
+  void saveDraft();
+  setStatus(
+    hasBlockingErrors
+      ? "가져왔습니다. 표시된 오류를 수정하세요."
+      : "가져오기 완료. 폼 채우기를 실행하세요."
+  );
+}
+
+function download(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 function loadFromTextarea(): boolean {
+  clearTemplate();
   try {
     product = parseProductInput(el.json.value);
   } catch (error) {
@@ -136,8 +464,14 @@ async function sendToTab<T>(tabId: number, message: RequestMessage): Promise<T> 
   try {
     return (await chrome.tabs.sendMessage(tabId, message)) as T;
   } catch {
-    await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
-    return (await chrome.tabs.sendMessage(tabId, message)) as T;
+    // iframe 안의 content script가 아직 준비되지 않았을 수 있어 한 번 더 시도한다.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    try {
+      return (await chrome.tabs.sendMessage(tabId, message)) as T;
+    } catch {
+      await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
+      return (await chrome.tabs.sendMessage(tabId, message)) as T;
+    }
   }
 }
 
@@ -190,6 +524,20 @@ function renderReport(report: FillReport): void {
 
 async function runPrefill(): Promise<void> {
   if (busy || !loadFromTextarea()) return;
+  if (hasBlockingErrors) {
+    setStatus("오류를 먼저 수정하세요.");
+    return;
+  }
+
+  await refreshAccount();
+  const paid = isPaid();
+  dailyUsage = await loadDailyUsage();
+  if (!paid && !canFill(dailyUsage, "free")) {
+    updateAccountUI();
+    setStatus("오늘 무료 이용 횟수를 모두 사용했습니다.");
+    return;
+  }
+
   const adapter = selectedAdapter();
   const tab = await activeTab();
   if (!tab?.id) {
@@ -211,7 +559,14 @@ async function runPrefill(): Promise<void> {
       return;
     }
     renderReport(response.report);
-    setStatus("확인 후 직접 저장·제출하세요.");
+    const filled = response.report.fields.some((field) => field.status === "filled");
+    if (!paid && filled) {
+      dailyUsage = await recordFill();
+      updateAccountUI();
+    }
+    setStatus(
+      filled ? "확인 후 직접 저장·제출하세요." : "입력된 필드가 없습니다. 등록 화면과 마켓을 확인하세요."
+    );
   } catch (error) {
     setStatus(
       `이 페이지에서는 실행할 수 없습니다. ${
@@ -299,6 +654,7 @@ async function downloadJson(): Promise<void> {
 async function init(): Promise<void> {
   el.version.textContent = `v${chrome.runtime.getManifest().version}`;
   await restoreDraft();
+  void refreshAccount();
 
   const tab = await activeTab();
   const detected = tab?.url ? detectMarketplace(tab.url) : undefined;
@@ -321,17 +677,68 @@ async function init(): Promise<void> {
   el.json.addEventListener("input", () => {
     void saveDraft();
   });
-  el.load.addEventListener("click", loadFromTextarea);
+  el.load.addEventListener("click", () => {
+    if (loadFromTextarea()) setStatus("JSON을 불러왔습니다.");
+  });
   el.sample.addEventListener("click", () => {
+    clearTemplate();
     product = sampleProduct();
     el.json.value = productToJson(product);
     renderIssues();
     void saveDraft();
   });
+
+  el.templateCsv.addEventListener("click", () => {
+    download(
+      new Blob([templateCsv()], { type: "text/csv;charset=utf-8" }),
+      "상품등록_템플릿.csv"
+    );
+  });
+
+  el.templateXlsx.addEventListener("click", () => {
+    download(
+      new Blob([templateXlsx() as BlobPart], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      }),
+      "상품등록_템플릿.xlsx"
+    );
+  });
+
+  el.file.addEventListener("change", async () => {
+    const file = el.file.files?.[0];
+    if (!file) return;
+    try {
+      const lower = file.name.toLowerCase();
+      let rows: string[][];
+      if (lower.endsWith(".csv")) {
+        rows = parseCsv(await file.text());
+      } else if (lower.endsWith(".xlsx")) {
+        rows = await readXlsxRows(await file.arrayBuffer());
+      } else {
+        throw new Error("CSV 또는 XLSX 파일만 지원합니다.");
+      }
+      applyTemplate(parseTemplateRows(rows), file.name);
+    } catch (error) {
+      clearTemplate();
+      fileError = `파일을 읽을 수 없습니다: ${
+        error instanceof Error ? error.message : String(error)
+      }`;
+      renderIssues();
+      setStatus("가져오기 실패");
+    } finally {
+      el.file.value = "";
+    }
+  });
   el.prefill.addEventListener("click", () => void runPrefill());
   el.scan.addEventListener("click", () => void runScan());
   el.open.addEventListener("click", () => void openCreatePage());
   el.download.addEventListener("click", () => void downloadJson());
+  el.connect.addEventListener("click", () => void connectAccount());
+  el.confirm.addEventListener("click", () => void confirmAccount());
+  el.upgrade.addEventListener("click", () => void upgradePlan());
+  el.paywallUpgrade.addEventListener("click", () => void upgradePlan());
+  el.manage.addEventListener("click", () => void manageSubscription());
+  el.acctDisconnect.addEventListener("click", () => void disconnectAccount());
 
   const savedMarket = await chrome.storage.local.get("draft:market");
   const market = savedMarket["draft:market"];

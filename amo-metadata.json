@@ -1,0 +1,18 @@
+{
+  "summary": {
+    "en-US": "Prefill Korean marketplace product forms from CSV, XLSX or JSON. Drafts stay local; sellers review and submit themselves. Free 5 fills/day or ₩4,900/month subscription.",
+    "ko": "CSV·XLSX·JSON 상품 정보로 판매자센터 폼을 채웁니다. 초안은 로컬 저장되며 저장·제출은 직접 합니다. 무료 하루 5회, 구독 월 ₩4,900."
+  },
+  "categories": {
+    "firefox": [
+      "shopping"
+    ]
+  },
+  "version": {
+    "license": "MIT",
+    "release_notes": {
+      "en-US": "0.2.0: Product account linking and a ₩4,900/month Paddle subscription. Free is 5 fills per day; subscribers have no fill limit. Product data remains local; no automated submission.",
+      "ko": "0.2.0: 제품 계정 연결과 Paddle 월 구독(₩4,900) 추가. 무료는 하루 5회, 구독은 횟수 제한 없음. 상품 데이터는 계속 로컬에만 저장되며 저장·제출은 직접 합니다."
+    }
+  }
+}

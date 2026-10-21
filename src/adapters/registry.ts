@@ -3,16 +3,15 @@ import { matchesUrl } from "./types";
 import type { MarketId } from "../shared/product";
 import { smartstore } from "./smartstore";
 import { coupang } from "./coupang";
-import { gmarket, auction } from "./esm";
 import { elevenst } from "./elevenst";
+import { esmplus } from "./esmplus";
 import { zigzag } from "./zigzag";
 import { ably } from "./ably";
 
 export const MARKETPLACES: MarketplaceAdapter[] = [
   smartstore,
   coupang,
-  gmarket,
-  auction,
+  esmplus,
   elevenst,
   zigzag,
   ably

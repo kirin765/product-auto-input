@@ -30,6 +30,16 @@ describe("labelScore", () => {
   it("무관한 텍스트는 0이다", () => {
     expect(labelScore("사업자등록번호", FIELD_LABELS.title)).toBe(0);
   });
+
+  it("한 글자 단위 텍스트가 다른 필드 별칭에 역방향으로 매칭되지 않는다", () => {
+    expect(labelScore("×원", FIELD_LABELS.origin)).toBe(0);
+    expect(labelScore("개", FIELD_LABELS.origin)).toBe(0);
+  });
+
+  it("판매자 상품코드를 공급사로 오인하지 않는다", () => {
+    expect(bestFieldKey("판매자 상품코드")).toBe("sku");
+    expect(labelScore("판매자 상품코드", FIELD_LABELS.supplier)).toBe(0);
+  });
 });
 
 describe("bestFieldKey", () => {

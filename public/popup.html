@@ -16,6 +16,22 @@
     </header>
 
     <main>
+      <section id="account" class="account">
+        <div class="acct-head">
+          <span id="acct-status">계정 확인 중…</span>
+          <span id="acct-badge" class="acct-badge hidden">무료</span>
+        </div>
+        <p id="acct-usage" class="acct-usage"></p>
+        <div class="acct-actions">
+          <button id="btn-connect" class="ghost small hidden" type="button">계정 연결</button>
+          <button id="btn-confirm" class="ghost small hidden" type="button">승인 확인</button>
+          <button id="btn-upgrade" class="ghost small hidden" type="button">구독 시작</button>
+          <button id="btn-manage" class="ghost small hidden" type="button">구독 관리</button>
+          <button id="btn-disconnect" class="ghost small hidden" type="button">연결 해제</button>
+        </div>
+        <p id="acct-hint" class="hint"></p>
+      </section>
+
       <section class="block">
         <div class="row">
           <label class="label" for="market">마켓</label>
@@ -23,6 +39,23 @@
           <button id="open" class="ghost" type="button">등록 페이지</button>
         </div>
         <p id="detected" class="hint"></p>
+        <div id="steps" class="steps"></div>
+      </section>
+
+      <section class="block">
+        <div class="row between">
+          <label class="label">고정 양식 (1개 상품)</label>
+          <div class="row tight">
+            <button id="template-csv" class="ghost small" type="button">CSV 템플릿</button>
+            <button id="template-xlsx" class="ghost small" type="button">XLSX 템플릿</button>
+          </div>
+        </div>
+        <div class="row">
+          <label class="ghost small file-label" for="file">CSV/XLSX 가져오기</label>
+          <input id="file" type="file" accept=".csv,.xlsx" hidden />
+          <span id="file-name" class="hint grow"></span>
+        </div>
+        <div id="fixes" class="fixes" aria-live="polite"></div>
       </section>
 
       <section class="block">
@@ -42,6 +75,11 @@
         <button id="prefill" class="primary" type="button">폼 채우기</button>
         <button id="scan" class="ghost" type="button">폼 스캔</button>
         <span id="status" class="status" role="status"></span>
+      </section>
+
+      <section id="paywall" class="paywall hidden" aria-live="polite">
+        <p id="paywall-text"></p>
+        <button id="paywall-upgrade" class="primary" type="button">월 ₩4,900 구독 시작</button>
       </section>
 
       <section id="report" class="report" aria-live="polite"></section>

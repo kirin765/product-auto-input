@@ -4,10 +4,13 @@
 
 Chrome MV3 extension that prefills product-registration forms on Korean marketplace seller centers.
 TypeScript bundled with esbuild; tests with Vitest (node + jsdom); no runtime dependencies.
+The product account/billing site and API live in `web/`; the shared contract lives in `shared/`.
 
 ## Commands
 
 - `npm run verify` — typecheck, tests, build. Run before finishing any change.
+- `npm run verify:web` — backend typecheck, tests, build (`web/`).
+- `npm run verify:all` — both extension and backend.
 - `npm run build` — outputs `dist/`; load it unpacked in Chrome.
 
 ## Invariants
@@ -15,6 +18,8 @@ TypeScript bundled with esbuild; tests with Vitest (node + jsdom); no runtime de
 - Never add code that clicks save/submit/publish/payment buttons. Prefilling only.
 - Never collect or transmit credentials. Use the existing browser session.
 - Keep product data local (`chrome.storage.local`); no analytics or remote logging.
+- Paid access is server-verified (`web/` + Paddle webhooks). Never trust a stored paid flag;
+  free usage is limited locally but entitlement needs a finite server-issued token.
 - CAPTCHA/human-verification is always handled by the user.
 
 ## Conventions

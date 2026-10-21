@@ -1,10 +1,14 @@
 {
   "manifest_version": 3,
   "name": "상품 등록 도우미 — Product Auto Input",
-  "version": "0.1.0",
-  "description": "스마트스토어·쿠팡·G마켓·옥션·11번가·지그재그·에이블리 판매자센터의 상품 등록 폼을 한 번의 입력으로 채워 줍니다. 저장·제출은 직접 합니다.",
+  "version": "0.2.0",
+  "description": "CSV·XLSX·JSON으로 준비한 상품 정보를 지원 판매자센터의 등록 폼에 채워 줍니다. 입력 결과를 확인하고 저장·제출은 직접 진행하세요.",
   "minimum_chrome_version": "110",
-  "permissions": ["storage", "activeTab", "scripting"],
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
   "background": {
     "service_worker": "background.js"
   },
@@ -29,23 +33,38 @@
       "matches": [
         "https://sell.smartstore.naver.com/*",
         "https://wing.coupang.com/*",
-        "https://etrade.gmarket.co.kr/*",
-        "https://etrade.auction.co.kr/*",
         "https://soffice.11st.co.kr/*",
         "https://partner.zigzag.kr/*",
-        "https://seller.a-bly.com/*"
+        "https://my.a-bly.com/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.esmplus.com/*",
+        "https://item.esmplus.com/*",
+        "https://seller-admin.a-bly.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
     }
   ],
   "host_permissions": [
     "https://sell.smartstore.naver.com/*",
     "https://wing.coupang.com/*",
-    "https://etrade.gmarket.co.kr/*",
-    "https://etrade.auction.co.kr/*",
     "https://soffice.11st.co.kr/*",
     "https://partner.zigzag.kr/*",
-    "https://seller.a-bly.com/*"
-  ]
+    "https://my.a-bly.com/*",
+    "https://seller-admin.a-bly.com/*",
+    "https://www.esmplus.com/*",
+    "https://item.esmplus.com/*",
+    "https://product-auto-input.onnurimun.com/*"
+  ],
+  "homepage_url": "https://product-auto-input.onnurimun.com"
 }

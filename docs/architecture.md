@@ -17,6 +17,24 @@ content script (src/content) — 판매자센터 페이지
 FillReport → 팝업에 필드별 상태 표시
 ```
 
+## 계정·구독 (선택)
+
+```
+팝업 (src/shared/account.ts)
+  │  link/start → 제품 사이트 로그인·연결 승인 → link/redeem
+  │  entitlement → 서버가 Paddle 구독 상태를 검증한 권한 응답
+  ▼
+제품 사이트·백엔드 (web/)
+  │  magic-link 로그인, 확장 연결, Paddle checkout/portal
+  │  Paddle 웹훅 → subscriptions/transactions/adjustments 저장
+  ▼
+무료/구독 판정: 서버 응답 + 24시간 이내 오프라인 토큰
+```
+
+- 무료는 하루 5회까지 `폼 채우기`를 허용하고, 구독은 횟수 제한이 없습니다.
+- 서버는 계정 이메일·세션·확장 토큰·Paddle 매핑만 저장하며 상품 데이터는 받지 않습니다.
+- 결제는 Paddle Checkout(`_ptxn` 링크 + Paddle.js)으로 열고, 성공 후 웹훅이 권한을 갱신합니다.
+
 콘텐츠 스크립트는 선언적 주입(`manifest.json`)과 팝업의 `scripting.executeScript` 폴백을 모두 지원합니다.
 중복 주입 시 리스너가 두 번 등록되지 않도록 `window.__productAutoInputLoaded` 플래그를 사용합니다.
 
@@ -61,12 +79,21 @@ interface FieldSpec {
 
 ### 필드 탐색
 
-1. `selectors`가 있으면 `querySelector`로 먼저 찾습니다(검증된 셀렉터 전용).
+1. `selectors`가 있으면 해당 셀렉터에 매칭되는 입력란을 모두 찾습니다(검증된 셀렉터 전용).
 2. 없으면 페이지의 `input/textarea/select/[contenteditable]`을 모아 라벨 텍스트를 수집합니다.
    - `aria-label`, `aria-labelledby`, `label[for]`, 래핑 `<label>`, `placeholder`, `title`,
      `id`/`name`, 짧은 행(row) 텍스트
 3. `FIELD_LABELS` 별칭과 정규화 후 비교해 **정확 일치 1.0 / 시작 0.85 / 포함 0.65** 점수를 냅니다.
-4. 0.6 이상 중 최고 점수를 선택합니다.
+4. 0.6 이상인 입력란을 사용합니다. 같은 필드의 사이트별·탭별 중복 입력란은
+   라벨을 정규화했을 때 **같은 의미**일 때만 함께 채웁니다.
+   (`추가상품명`, `구입 당시 판매가`, `최소구매수량` 같은 유사 라벨은 제외)
+5. 어댑터의 `kind`는 힌트로만 사용합니다. 실제 마켓이 `select`/`textarea`/`radio`로
+   렌더링해도 값 입력이 가능한 컨트롤이면 매칭합니다.
+6. 접힌 섹션·비활성 탭·숨겨진 입력란도 값 설정 대상에 포함합니다.
+   단, 보이는 입력란을 우선하고 `input[type=search]`/`.filter-box`는 제외합니다.
+7. 입력란 자체에 라벨이 없을 때만 바깥 섹션 헤더를 보조 라벨로 사용합니다.
+8. 어댑터가 선언하지 않은 필드도 페이지 라벨에서 키를 추론해 값이 있으면 채웁니다.
+9. `prepare`에서 `expandSections()`로 접힌 섹션을 먼저 펼칩니다. 이미 열린 섹션은 닫지 않습니다.
 
 ### 값 설정
 
